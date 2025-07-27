@@ -25,7 +25,13 @@ interface RfCode {
 
 const STORAGE_KEY = "@rf_codes";
 
-export default function RfPanel({ isOpen }: { isOpen: boolean }) {
+export default function RfPanel({
+  isOpen,
+  sendDataToDevice,
+}: {
+  isOpen: boolean;
+  sendDataToDevice: (data: string) => void;
+}) {
   const theme = useTheme();
   const styles = useThemedStyles(theme);
   const [codes, setCodes] = useState<RfCode[]>([]);
@@ -94,10 +100,24 @@ export default function RfPanel({ isOpen }: { isOpen: boolean }) {
         right={(props) => (
           <View style={styles.cardActions}>
             <Tooltip title="Send the code">
-              <IconButton icon="transmission-tower-export" onPress={() => console.log("Send:", item)} {...props} />
+              <IconButton
+                icon="transmission-tower-export"
+                onPress={() => {
+                  sendDataToDevice(`c,${item?.Code},${item?.Freq == 315 ? 1 : 2},${item?.Protocol}`);
+                }}
+                {...props}
+              />
             </Tooltip>
             <Tooltip title="Rapid Send the code">
-              <IconButton icon="flash" onPress={() => console.log("Rapid Send:", item)} {...props} />
+              <IconButton
+                icon="flash"
+                onPress={() => {
+                  for (let i = 0; i < 10; i++) {
+                    sendDataToDevice(`c,${item?.Code},${item?.Freq == 315 ? 1 : 2},${item?.Protocol}`);
+                  }
+                }}
+                {...props}
+              />
             </Tooltip>
             <IconButton icon="pencil" onPress={() => openModal(item, index)} {...props} />
             <IconButton icon="delete" onPress={() => confirmDelete(index)} {...props} />
