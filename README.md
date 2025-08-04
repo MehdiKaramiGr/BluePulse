@@ -1,3 +1,51 @@
+# BluePulse
+
+**BluePulse** is a cross-platform React Native app (built with Expo) designed to communicate with ESP32-based RF control hardware via Bluetooth. The app allows users to manage, send, and organize RF codes over BLE with an intuitive UI.
+
+---
+
+## 🔧 Features
+
+- 📡 Connects to ESP32 via Bluetooth Low Energy (BLE)
+- 📁 View and manage a list of saved RF codes
+- 🎯 Tap to send RF code (single or rapid fire)
+- 🛠️ Edit code details (name, frequency, payload)
+- ⚠️ Delete codes with confirmation modal
+- 🆕 Add new RF codes via modal
+- 🔁 Toggle between 315 MHz and 433 MHz
+
+---
+
+## 📸 Screenshots
+
+---
+
+## 💡 Use Case
+
+This app replaces the need for a physical screen/input on ESP32-based RF remote devices. It is designed as part of a DIY toolkit to interact with smart home RF devices and IR devieces in future developments (e.g. garage doors, lights, etc.).
+
+---
+
+## 📦 Tech Stack
+
+- React Native + Expo
+- React Navigation
+- Bluetooth integration using Expo BLE
+- TypeScript
+
+---
+
+## 🚀 How to Run
+
+````bash
+git clone https://github.com/mehdikaramigr/bluepulse
+cd bluepulse
+npm install
+npx expo start
+
+
+
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
@@ -8,7 +56,7 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
    ```bash
    npm install
-   ```
+````
 
 2. Start the app
 
