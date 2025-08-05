@@ -9,8 +9,8 @@
 // RF Pins
 #define tx315PIN 14
 #define tx443PIN 26
-#define rx443PIN 25
-#define rx315PIN 27
+#define rx315PIN 13
+#define rx443PIN 14
 RCSwitch rx433 = RCSwitch();
 RCSwitch2 rx315 = RCSwitch2();
 RCSwitch tx433 = RCSwitch();
@@ -29,7 +29,7 @@ BLECharacteristic *pCharacteristicRX;
 RCSwitch mySwitch = RCSwitch();
 
 bool deviceConnected = false;
-bool receiverMode = false;
+bool receiverEnabled = false;
 
 class MyServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
@@ -40,6 +40,10 @@ class MyServerCallbacks : public BLEServerCallbacks {
   void onDisconnect(BLEServer* pServer) {
     deviceConnected = false;
     Serial.println("BLE device disconnected");
+
+    // Restart advertising
+    BLEDevice::getAdvertising()->start();
+    Serial.println("BLE advertising restarted");
   }
 };
 
@@ -84,53 +88,57 @@ void setup() {
 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->start();
+  pAdvertising->setScanResponse(false);
+  pAdvertising->setMinPreferred(0x06);  // functions better with iOS
+  pAdvertising->setMinPreferred(0x12);  // functions better with iOS
+  BLEDevice::startAdvertising();
 
   Serial.println("BLE advertising started");
 }
 
 void loop() {
-    if(receiverMode){
-        notify();
-    }else{
-        rx433.disableReceive();
-        rx315.disableReceive();
-    }
+    notify(); 
+
+     // Optional: ensure advertising restarts if not connected
+  if (!deviceConnected && !BLEDevice::getAdvertising()->isAdvertising()) {
+    BLEDevice::startAdvertising();
+    Serial.println("BLE advertising auto-restarted (loop check)");
+  }
 }
 
 
+
 void notify() {
-    if(!receiverMode){
+    if (!receiverEnabled) {
         rx433.enableReceive(rx443PIN);
-         rx315.enableReceive(rx315PIN);
+        rx315.enableReceive(rx315PIN);
+        receiverEnabled = true;
     }
-    
+
     bool updated = false;
-    String code;
-
-
+    String message = "";
 
     if (rx433.available()) {
         unsigned long code = rx433.getReceivedValue();
         int protocol = rx433.getReceivedProtocol();
-        String msg = String(code) + ",2," +  String(protocol);
+        message = String(code) + ",2," + String(protocol);
         rx433.resetAvailable();
         updated = true;
     }
- 
+
     if (rx315.available()) {
         unsigned long code = rx315.getReceivedValue();
         int protocol = rx315.getReceivedProtocol();
-        int protocol = rx315.getReceivedProtocol();
-        String msg = String(code) + ",2," +  String(protocol);
+        message = String(code) + ",1," + String(protocol);
         rx315.resetAvailable();
         updated = true;
     }
-  
-    if (updated) {
-        // Notify BLE client
-        pCharacteristicTX->setValue(msg.c_str());
-        pCharacteristicTX->notify();
-    }
 
+    if (updated && pCharacteristicTX != nullptr) {
+        pCharacteristicTX->setValue(message.c_str());
+        pCharacteristicTX->notify();
+        Serial.print("Sent via BLE: ");
+        Serial.println(message);
+    }
 }
+
