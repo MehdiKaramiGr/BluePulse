@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
-import { Alert, FlatList, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
+import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   Button,
   Card,
@@ -14,13 +16,13 @@ import {
   Tooltip,
   useTheme,
 } from "react-native-paper";
-
 interface RfCode {
   Code: string;
   Alias: string;
   Freq: number;
   Protocol: number;
   SortId: number;
+  Repeat: number;
 }
 
 const STORAGE_KEY = "@rf_codes";
@@ -43,6 +45,7 @@ export default function RfPanel({
     Freq: 443,
     Protocol: 1,
     SortId: 0,
+    Repeat: 1,
   });
 
   useEffect(() => {
@@ -61,7 +64,7 @@ export default function RfPanel({
       setForm(item);
       setEditIndex(index);
     } else {
-      setForm({ Code: "", Alias: "", Freq: 443, Protocol: 1, SortId: codes.length });
+      setForm({ Code: "", Alias: "", Freq: 443, Protocol: 1, SortId: codes.length, Repeat: 1 });
       setEditIndex(null);
     }
     setModalVisible(true);
@@ -93,8 +96,13 @@ export default function RfPanel({
     ]);
   };
 
-  const renderItem = ({ item, index }: { item: RfCode; index: number }) => (
-    <Card style={styles.card} key={index}>
+  const renderItem = ({ item, getIndex, drag, isActive }: RenderItemParams<RfCode>) => (
+    <Card
+      style={[styles.card, { backgroundColor: isActive ? "#aaa" : theme.colors.surfaceVariant }]}
+      key={getIndex()}
+      onLongPress={drag} // enable dragging by long press
+    >
+      {/* <Card.Cover source={{ uri: "https://picsum.photos/700" }} /> */}
       <Card.Title
         title={item.Alias}
         right={(props) => (
@@ -119,17 +127,18 @@ export default function RfPanel({
                 {...props}
               />
             </Tooltip>
-            <IconButton icon="pencil" onPress={() => openModal(item, index)} {...props} />
-            <IconButton icon="delete" onPress={() => confirmDelete(index)} {...props} />
+            <IconButton icon="pencil" onPress={() => openModal(item, getIndex())} {...props} />
+            <IconButton icon="delete" onPress={() => confirmDelete(getIndex() ?? -1)} {...props} />
           </View>
         )}
       />
-
       <Card.Content>
         <View style={styles.infoRow}>
+          <Text style={styles.infoText}>SortId: {item.SortId}</Text>
           <Text style={styles.infoText}>Code: {item.Code}</Text>
           <Text style={styles.infoText}>Freq: {item.Freq}</Text>
           <Text style={styles.infoText}>Prot: {item.Protocol}</Text>
+          <Text style={styles.infoText}>🔁 {item.Repeat}</Text>
         </View>
       </Card.Content>
     </Card>
@@ -141,11 +150,18 @@ export default function RfPanel({
         Add New Code
       </Button>
 
-      <FlatList
-        data={codes.sort((a, b) => a.SortId - b.SortId)}
-        keyExtractor={(_, index) => index.toString()}
-        renderItem={renderItem}
-      />
+      <GestureHandlerRootView>
+        <DraggableFlatList
+          data={codes.sort((a, b) => a.SortId - b.SortId)}
+          keyExtractor={(item, index) => item.Code + index.toString()}
+          renderItem={renderItem}
+          onDragEnd={({ data }) => {
+            // Update SortId based on new order
+            const updated = data.map((item, index) => ({ ...item, SortId: index }));
+            saveCodes(updated);
+          }}
+        />
+      </GestureHandlerRootView>
 
       <Portal>
         <Modal visible={modalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={styles.modal}>
@@ -161,6 +177,12 @@ export default function RfPanel({
             label="Code"
             value={form.Code}
             onChangeText={(text) => setForm({ ...form, Code: text })}
+            style={styles.input}
+          />
+          <TextInput
+            label="Repeat"
+            value={`${form.Repeat}`}
+            onChangeText={(text) => setForm({ ...form, Repeat: Number(text) })}
             style={styles.input}
           />
           <View style={styles.switchRow2}>
@@ -224,6 +246,9 @@ const useThemedStyles = (theme: MD3Theme) =>
     },
     addButton: {
       marginVertical: 8,
+      position: "absolute",
+      bottom: 0,
+      zIndex: 5,
     },
     input: {
       marginVertical: 8,

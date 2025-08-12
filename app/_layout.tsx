@@ -18,6 +18,7 @@ import "react-native-reanimated";
 
 // ConnectionSettingsPanel.tsx
 
+import QuickAccessPanel from "@/components/QuickAccessPanel";
 import { Buffer } from "buffer";
 import { useRef } from "react";
 import { Alert, PermissionsAndroid, Platform } from "react-native";
@@ -32,6 +33,16 @@ const STORAGE_KEY_LAST_DEVICE_ID = "@last_connected_device_id";
 // Define your routes and their components
 const IrMenu = () => <Text>Comming soon...</Text>;
 const Settings = () => <Text>settings</Text>;
+
+// Sample data type
+type CodeItem = {
+  id: string;
+  name: string;
+  code: number;
+  freq: number;
+  protocol: number;
+  favorite: boolean;
+};
 
 type ThemeMode = "light" | "dark";
 
@@ -53,6 +64,7 @@ export default function RootLayout() {
   });
 
   const [routes] = useState([
+    { key: "qa", title: "qa-TX", focusedIcon: "bookmark" },
     { key: "rf", title: "RF-TX", focusedIcon: "radio-tower" },
     { key: "ir", title: "IR-TX", focusedIcon: "remote" },
     { key: "rfrx", title: "RF-RX", focusedIcon: "radar" },
@@ -68,7 +80,16 @@ export default function RootLayout() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [sniffedCodes, setSniffedCodes] = useState<SniffedCode[]>([]);
+  const [codes, setCodes] = useState<CodeItem[]>([
+    { id: "1", name: "Garage Door", code: 123456, freq: 433, protocol: 1, favorite: true },
+    { id: "2", name: "Car Alarm", code: 654321, freq: 315, protocol: 1, favorite: true },
+    { id: "3", name: "Porch Light", code: 111222, freq: 433, protocol: 1, favorite: false },
+    { id: "4", name: "Garageasd Door", code: 123456, freq: 433, protocol: 1, favorite: true },
+    { id: "5", name: "Car Alarasdm", code: 654321, freq: 315, protocol: 1, favorite: true },
+    { id: "6", name: "Porch Ligasdsadht", code: 111222, freq: 433, protocol: 1, favorite: true },
+  ]);
 
+  const favoriteCodes = codes.filter((c) => c.favorite);
   useEffect(() => {
     requestPermissions();
     restoreConnection();
@@ -195,6 +216,15 @@ export default function RootLayout() {
     }
   };
 
+  const sendCodeViaBLE = (code: CodeItem) => {
+    // Replace with your BLE send logic
+    console.log(`Sending code ${code.code} freq ${code.freq} protocol ${code.protocol}`);
+  };
+
+  const removeFavorite = (id: string) => {
+    setCodes((prev) => prev.map((c) => (c.id === id ? { ...c, favorite: false } : c)));
+  };
+
   const theme: CustomTheme = {
     ...(themeMode === "light" ? MD3LightTheme : MD3DarkTheme),
     myOwnProperty: true,
@@ -205,6 +235,9 @@ export default function RootLayout() {
   };
 
   const renderScene = BottomNavigation.SceneMap({
+    qa: () => (
+      <QuickAccessPanel favorites={favoriteCodes} onSendCode={sendCodeViaBLE} onRemoveFavorite={removeFavorite} />
+    ),
     rf: () => <RfPanel isOpen={index == 0} sendDataToDevice={sendDataToDevice} />,
     ir: IrMenu,
     rfrx: () => (
@@ -267,7 +300,7 @@ export default function RootLayout() {
     <PaperProvider theme={theme}>
       <>
         <Appbar.Header>
-          <Appbar.Content title="Flip" />
+          <Appbar.Content title="Blue Pulse" />
           <Appbar.Action icon={themeMode === "light" ? "weather-sunny" : "weather-night"} onPress={toggleTheme} />
         </Appbar.Header>
 

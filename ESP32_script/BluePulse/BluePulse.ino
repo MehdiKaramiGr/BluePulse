@@ -86,9 +86,12 @@ class MyWriteCallbacks : public BLECharacteristicCallbacks {
       Serial.println(codeStr);
        if (freq == 1) {
           rx315.setProtocol(protocol.toInt());
+          // Optional set number of transmission repetitions.
+          // rx315.setRepeatTransmit(15);
           rx315.send(codeStr.toInt(), 24);
         } else {
           rx433.setProtocol(protocol.toInt());
+          rx433.
           rx433.send(codeStr.toInt(), 24);
       }
     }

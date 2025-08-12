@@ -25,6 +25,7 @@ export interface SniffedCode {
 interface SavedCode extends SniffedCode {
   Alias: string;
   SortId: number;
+  Code: string;
 }
 
 const STORAGE_KEY = "@rf_codes";
@@ -125,14 +126,21 @@ export default function SniffedCodesPanel({
       ...selectedCode,
       Alias: Alias.trim(),
       SortId: savedCodes.length,
+      Code: selectedCode?.raw,
     };
 
     const updatedSavedCodes = [...savedCodes, newCode];
+    console.log("updatedSavedCodes :>> ", updatedSavedCodes);
     persistSavedCodes(updatedSavedCodes);
 
     setSniffedCodes((prev) => prev.filter((c) => c.id !== selectedCode.id));
     setSelectedCode(null);
     setAlias("");
+  };
+
+  const clearAllCodes = () => {
+    // Clear in-memory lists
+    setSniffedCodes([]);
   };
 
   return (
@@ -187,6 +195,15 @@ export default function SniffedCodesPanel({
           </Dialog.Actions>
         </Dialog>
       </Portal>
+      {sniffedCodes?.length > 0 ? (
+        <Button
+          mode="contained"
+          onPress={clearAllCodes}
+          style={{ marginVertical: 8, position: "absolute", bottom: 0, zIndex: 5 }}
+        >
+          Clear All Codes
+        </Button>
+      ) : null}
     </View>
   );
 }
