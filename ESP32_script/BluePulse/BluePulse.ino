@@ -94,6 +94,8 @@ class MyWriteCallbacks : public BLECharacteristicCallbacks {
 
 void setup() {
   Serial.begin(115200);
+  // For Some board this GPIO14 is registered as JTAG port TMS input signal causes to reboot the board on reciving data
+  pinMode(14,INPUT);
   delay(50);
 
   // RC-Switch setup (pins for ESP32 variants of the libs)

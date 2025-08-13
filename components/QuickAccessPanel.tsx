@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import React from "react";
+import { Alert, Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-// Sample data type
 type CodeItem = {
   id: string;
   name: string;
@@ -15,10 +15,19 @@ type QuickAccessPanelProps = {
   favorites: CodeItem[];
   onSendCode: (code: CodeItem) => void;
   onRemoveFavorite: (id: string) => void;
+  deviceName?: string | null; // Bluetooth device name
 };
 
-export default function QuickAccessPanel({ favorites, onSendCode, onRemoveFavorite }: QuickAccessPanelProps) {
-  // Long press handler for edit/delete options
+const screenWidth = Dimensions.get("window").width;
+const numColumns = 2;
+const itemWidth = screenWidth / numColumns - 28; // smaller than before
+
+export default function QuickAccessPanel({
+  favorites,
+  onSendCode,
+  onRemoveFavorite,
+  deviceName,
+}: QuickAccessPanelProps) {
   const handleLongPress = (item: CodeItem) => {
     Alert.alert(
       item.name,
@@ -32,25 +41,44 @@ export default function QuickAccessPanel({ favorites, onSendCode, onRemoveFavori
   };
 
   const renderItem = ({ item }: { item: CodeItem }) => (
-    <TouchableOpacity style={styles.codeBox} onPress={() => onSendCode(item)} onLongPress={() => handleLongPress(item)}>
-      <Text style={styles.codeName}>{item.name}</Text>
-      <Text style={styles.codeDetails}>{`Code: ${item.code}`}</Text>
-      <Text style={styles.codeDetails}>{`Freq: ${item.freq} MHz`}</Text>
+    <TouchableOpacity
+      style={[styles.card, { width: itemWidth }]}
+      onPress={() => onSendCode(item)}
+      onLongPress={() => handleLongPress(item)}
+    >
+      <MaterialCommunityIcons name="remote" size={44} color="#fff" style={styles.icon} />
+      <Text style={styles.name} numberOfLines={1}>
+        {item.name}
+      </Text>
+      <Text style={styles.subtext}>{`${item.freq} MHz`}</Text>
     </TouchableOpacity>
   );
 
-  if (favorites.length === 0) return null;
+  if (!favorites.length) return null;
 
   return (
     <View style={styles.container}>
+      {/* Device connection status */}
+      <View style={styles.connectionBar}>
+        <MaterialCommunityIcons
+          name={deviceName ? "bluetooth-connect" : "bluetooth-off"}
+          size={18}
+          color={deviceName ? "#4cd964" : "#ff3b30"}
+        />
+        <Text style={[styles.connectionText, { color: deviceName ? "#4cd964" : "#ff3b30" }]}>
+          {deviceName ? `Connected to ${deviceName}` : "No device connected"}
+        </Text>
+      </View>
+
       <Text style={styles.title}>Quick Access</Text>
+
       <FlatList
-        horizontal
         data={favorites}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 10 }}
+        numColumns={numColumns}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.listContent}
       />
     </View>
   );
@@ -58,31 +86,58 @@ export default function QuickAccessPanel({ favorites, onSendCode, onRemoveFavori
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 10,
-    backgroundColor: "#222",
+    backgroundColor: "#111",
+    flex: 1,
+    paddingTop: 12,
+  },
+  connectionBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  connectionText: {
+    fontSize: 14,
+    marginLeft: 6,
+    fontWeight: "500",
   },
   title: {
-    color: "#eee",
-    fontWeight: "bold",
-    fontSize: 16,
-    marginLeft: 12,
-    marginBottom: 6,
-  },
-  codeBox: {
-    backgroundColor: "#444",
-    borderRadius: 8,
-    padding: 10,
-    marginRight: 10,
-    width: 140,
-  },
-  codeName: {
+    fontSize: 20,
+    fontWeight: "600",
     color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
+    marginLeft: 16,
+    marginBottom: 16,
+  },
+  listContent: {
+    paddingHorizontal: 12,
+  },
+  row: {
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  card: {
+    backgroundColor: "#1c1c1e",
+    borderRadius: 18,
+    paddingVertical: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  icon: {
+    marginBottom: 10,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#fff",
     marginBottom: 4,
   },
-  codeDetails: {
-    color: "#ccc",
+  subtext: {
     fontSize: 12,
+    color: "#a1a1a1",
   },
 });
