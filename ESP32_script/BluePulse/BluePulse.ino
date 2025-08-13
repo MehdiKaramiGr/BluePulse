@@ -15,16 +15,13 @@
 RCSwitch rx433 = RCSwitch();
 RCSwitch2 rx315 = RCSwitch2();
 
-
-#define RX_PIN 27
-
 // BLE UUIDs
 #define SERVICE_UUID           "12345678-1234-1234-1234-1234567890ab"
 #define CHARACTERISTIC_UUID_TX "12345678-1234-1234-1234-1234567890ac"
 #define CHARACTERISTIC_UUID_RX "12345678-1234-1234-1234-1234567890ad"
 
-BLECharacteristic *pCharacteristicTX;
-BLECharacteristic *pCharacteristicRX;
+BLECharacteristic *pCharacteristicTX = nullptr;
+BLECharacteristic *pCharacteristicRX = nullptr;
 
 bool deviceConnected = false;
 bool receiverEnabled = false;
@@ -45,71 +42,69 @@ class MyServerCallbacks : public BLEServerCallbacks {
 
 class MyWriteCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
-    String value = pCharacteristic->getValue();
+    String s = pCharacteristic->getValue(); // get as std::string
+    if (s.isEmpty()) return;
+
+    String value = String(s.c_str()); // convert to Arduino String for convenience
     Serial.print("Received from BLE: ");
     Serial.println(value);
 
     // Expected format: c,<CODE>,<FREQ_FLAG>,<PROTOCOL>
-    if (!value.startsWith("c,")) return;
+    if (!value.startsWith("c,")) {
+      Serial.println("BLE command not starting with 'c,' -> ignored");
+      return;
+    }
 
-    int first = value.indexOf(',');
+    int first = value.indexOf(','); // should be 1
     int second = value.indexOf(',', first + 1);
     int third = value.indexOf(',', second + 1);
 
     if (first == -1 || second == -1 || third == -1) {
-      Serial.println("Invalid format");
+      Serial.println("Invalid format (need c,<CODE>,<FREQ_FLAG>,<PROTOCOL>)");
       return;
     }
 
     String codeStr = value.substring(first + 1, second);
-    int freq = value.substring(second + 1, third).toInt();
-    String protocol = value.substring(third + 1);
+    int freqFlag = value.substring(second + 1, third).toInt(); // 1 => 315, 2 => 433 (per your code)
+    String protocolStr = value.substring(third + 1);
 
-    // Convert code from hex string to unsigned long
-    // unsigned long code = codeStr;
+    unsigned long codeNum = (unsigned long) strtoul(codeStr.c_str(), nullptr, 10); // decimal
+    int protocolNum = protocolStr.toInt();
 
-    Serial.printf("Parsed code: %lu, freq: %d, protocol: %s\n", codeStr, freq, protocol.c_str());
+    Serial.printf("Parsed code: %lu, freqFlag: %d, protocol: %d\n", codeNum, freqFlag, protocolNum);
 
-    // RCSwitch* tx = (freq == 315) ? &tx315 : &tx433;
-    // int txPin = (freq == 315) ? tx315PIN : tx443PIN;
-
-
-
-    if (protocol == "raw") {
+    if (protocolStr == "raw") {
       Serial.println("Raw protocol currently not implemented.");
-      // Implement raw sending if needed
-    } else {
-      // int proto =  .toInt();
-      // tx->setProtocol(proto);
-      // tx->send(code, 24);  // Adjust bit length if needed
-      Serial.println("Signal sent");
-      Serial.println(codeStr);
-       if (freq == 1) {
-          rx315.setProtocol(protocol.toInt());
-          // Optional set number of transmission repetitions.
-          // rx315.setRepeatTransmit(15);
-          rx315.send(codeStr.toInt(), 24);
-        } else {
-          rx433.setProtocol(protocol.toInt());
-          rx433.
-          rx433.send(codeStr.toInt(), 24);
-      }
+      return;
     }
 
-
+    if (freqFlag == 1) {
+      // 315 handler
+      rx315.setProtocol(protocolNum);
+      rx315.send(codeNum, 24); // adjust bits if needed
+      Serial.println("Sent on 315 MHz");
+    } else {
+      // default to 433
+      rx433.setProtocol(protocolNum);
+      rx433.send(codeNum, 24); // adjust bits if needed
+      Serial.println("Sent on 433 MHz");
+    }
   }
 };
 
 void setup() {
   Serial.begin(115200);
+  delay(50);
 
+  // RC-Switch setup (pins for ESP32 variants of the libs)
   rx433.enableReceive(rx443PIN);
   rx315.enableReceive(rx315PIN);
-  rx433.enableTransmit(tx443PIN);   // e.g., pin 4 for 433 MHz TX
+  rx433.enableTransmit(tx443PIN);
   rx315.enableTransmit(tx315PIN);
   receiverEnabled = true;
   Serial.println("RC-Switch receivers enabled");
 
+  // BLE init
   BLEDevice::init("ESP32_RF_Sniffer");
   BLEServer *pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
@@ -118,12 +113,14 @@ void setup() {
 
   pCharacteristicTX = pService->createCharacteristic(
       CHARACTERISTIC_UUID_TX,
-      BLECharacteristic::PROPERTY_NOTIFY);
+      BLECharacteristic::PROPERTY_NOTIFY
+  );
   pCharacteristicTX->addDescriptor(new BLE2902());
 
   pCharacteristicRX = pService->createCharacteristic(
       CHARACTERISTIC_UUID_RX,
-      BLECharacteristic::PROPERTY_WRITE);
+      BLECharacteristic::PROPERTY_WRITE
+  );
   pCharacteristicRX->setCallbacks(new MyWriteCallbacks());
 
   pService->start();
@@ -137,7 +134,7 @@ void setup() {
 
   Serial.println("BLE advertising started");
 }
-c:\Users\Mehdi\Desktop\sketch_jul27a\sketch_jul27a.ino
+
 bool isAdvertising = false;
 
 void loop() {
@@ -149,18 +146,24 @@ void loop() {
   if (deviceConnected && isAdvertising) {
     isAdvertising = false;
   }
-    notify();
+
+  notify();
+
+  // Give RTOS some time; keeps watchdog happy
+  delay(1);
 }
+
 void notify() {
   bool updated = false;
   String message = "";
-  // Serial.println("start");
+
   if (rx433.available()) {
     unsigned long code = rx433.getReceivedValue();
     int protocol = rx433.getReceivedProtocol();
     message = String(code) + ",2," + String(protocol);
     rx433.resetAvailable();
     updated = true;
+
   }
 
   if (rx315.available()) {
@@ -169,6 +172,7 @@ void notify() {
     message = String(code) + ",1," + String(protocol);
     rx315.resetAvailable();
     updated = true;
+
   }
 
   if (updated && pCharacteristicTX != nullptr) {
@@ -176,5 +180,6 @@ void notify() {
     pCharacteristicTX->notify();
     Serial.print("Sent via BLE: ");
     Serial.println(message);
+
   }
 }
