@@ -4,7 +4,7 @@
 #include <BLE2902.h>
 
 #include <RCSwitch.h>
-#include <RCSwitch2.h>
+#include "lib/RCSwitch2.h"
 
 // RF Pins
 #define tx315PIN 27

@@ -85,6 +85,42 @@ Example:
 
 ---
 
+## ⚙️ Modified RC-Switch2 Library
+
+This project uses a modified version of [RC-Switch](https://github.com/sui77/rc-switch) called **RC-Switch2**.
+
+### Why RC-Switch2?
+
+- The standard RC-Switch library only allows one instance at a time per frequency.
+- RC-Switch2 is modified to:
+  - Sniff **both 315 MHz and 433 MHz simultaneously**
+  - Avoid conflicts when using multiple transmitter/receiver instances
+  - Support custom repeat and protocol handling
+
+### Usage
+
+- Include `RCSwitch2.h` and `RCSwitch2.cpp` from this repo in your project
+- Use separate instances for 315 MHz and 433 MHz:
+  ```cpp
+  RCSwitch2 rx315;
+  RCSwitch rx433;
+  ```
+
+Call `enableReceive(pin)` and `enableTransmit(pin)` per instance
+
+---
+
+### 2️⃣ How to include it in your repo
+
+- Put the `RCSwitch2.h` and `RCSwitch2.cpp` **directly in your repo** (e.g., in a `lib/` folder) next to your main Arduino sketch.
+- In your code:
+
+```cpp
+#include "lib/RCSwitch2.h"
+
+---
+
+
 ## 📱 Companion App
 
 This firmware pairs with the **BluePulse React Native app** for iOS/Android.
@@ -117,3 +153,4 @@ MIT License. Free to use, modify, and distribute.
 - [RC-Switch](https://github.com/sui77/rc-switch)
 - [ESP32 BLE Arduino](https://github.com/nkolban/ESP32_BLE_Arduino)
 - Inspiration from open-source RF remote projects
+```
