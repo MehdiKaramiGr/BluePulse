@@ -20,6 +20,10 @@
 
 ### Quick Access Panel
 
+| Quick Access                                 | saved-codes                                         | Setting                                 |
+| -------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
+| ![Home](assets/screenshots/quick-access.jpg) | ![Quick Access](assets/screenshots/saved-codes.jpg) | ![Edit](assets/screenshots/setting.jpg) |
+
 ![Quick Access](assets/screenshots/quick-access.jpg)
 
 ### Saved Codes
