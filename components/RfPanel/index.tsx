@@ -11,21 +11,24 @@ import {
   Modal,
   Portal,
   SegmentedButtons,
+  Switch,
   Text,
   TextInput,
   Tooltip,
   useTheme,
 } from "react-native-paper";
-interface RfCode {
-  Code: string;
-  Alias: string;
-  Freq: number;
-  Protocol: number;
-  SortId: number;
-  Repeat: number;
-}
+import { RfCode } from "./types";
+// interface RfCode {
+//   Code: string;
+//   Alias: string;
+//   Freq: number;
+//   Protocol: number;
+//   SortId: number;
+//   Repeat: number;
+//   Favorite: boolean;
+// }
 
-const STORAGE_KEY = "@rf_codes";
+export const STORAGE_KEY = "@rf_codes";
 
 export default function RfPanel({
   isOpen,
@@ -46,6 +49,7 @@ export default function RfPanel({
     Protocol: 1,
     SortId: 0,
     Repeat: 1,
+    Favorite: false,
   });
 
   useEffect(() => {
@@ -64,7 +68,7 @@ export default function RfPanel({
       setForm(item);
       setEditIndex(index);
     } else {
-      setForm({ Code: "", Alias: "", Freq: 443, Protocol: 1, SortId: codes.length, Repeat: 1 });
+      setForm({ Code: "", Alias: "", Freq: 443, Protocol: 1, SortId: codes.length, Repeat: 1, Favorite: false });
       setEditIndex(null);
     }
     setModalVisible(true);
@@ -111,7 +115,7 @@ export default function RfPanel({
               <IconButton
                 icon="transmission-tower-export"
                 onPress={() => {
-                  sendDataToDevice(`c,${item?.Code},${item?.Freq == 315 ? 1 : 2},${item?.Protocol}`);
+                  sendDataToDevice(`c,${item?.Code},${item?.Freq == 315 ? 1 : 2},${item?.Protocol},${item?.Repeat}`);
                 }}
                 {...props}
               />
@@ -121,7 +125,7 @@ export default function RfPanel({
                 icon="flash"
                 onPress={() => {
                   for (let i = 0; i < 10; i++) {
-                    sendDataToDevice(`c,${item?.Code},${item?.Freq == 315 ? 1 : 2},${item?.Protocol}`);
+                    sendDataToDevice(`c,${item?.Code},${item?.Freq == 315 ? 1 : 2},${item?.Protocol},${item?.Repeat}`);
                   }
                 }}
                 {...props}
@@ -134,11 +138,9 @@ export default function RfPanel({
       />
       <Card.Content>
         <View style={styles.infoRow}>
-          <Text style={styles.infoText}>SortId: {item.SortId}</Text>
           <Text style={styles.infoText}>Code: {item.Code}</Text>
           <Text style={styles.infoText}>Freq: {item.Freq}</Text>
-          <Text style={styles.infoText}>Prot: {item.Protocol}</Text>
-          <Text style={styles.infoText}>🔁 {item.Repeat}</Text>
+          <Text style={styles.infoText}>Rep: {item.Repeat}</Text>
         </View>
       </Card.Content>
     </Card>
@@ -216,6 +218,10 @@ export default function RfPanel({
               ]}
             />
             {/* </ScrollView> */}
+          </View>
+          <View style={styles.switchRow}>
+            <Text>Bookmark</Text>
+            <Switch value={form.Favorite} onValueChange={(value) => setForm({ ...form, Favorite: value })} />
           </View>
 
           <Button mode="contained" onPress={submit} style={styles.submitButton}>

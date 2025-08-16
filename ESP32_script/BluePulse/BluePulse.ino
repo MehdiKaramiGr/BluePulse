@@ -58,8 +58,9 @@ class MyWriteCallbacks : public BLECharacteristicCallbacks {
     int first = value.indexOf(','); // should be 1
     int second = value.indexOf(',', first + 1);
     int third = value.indexOf(',', second + 1);
+    int fourth = value.indexOf(',', third + 1);
 
-    if (first == -1 || second == -1 || third == -1) {
+    if (first == -1 || second == -1 || third == -1 || fourth == -1) {
       Serial.println("Invalid format (need c,<CODE>,<FREQ_FLAG>,<PROTOCOL>)");
       return;
     }
@@ -67,6 +68,8 @@ class MyWriteCallbacks : public BLECharacteristicCallbacks {
     String codeStr = value.substring(first + 1, second);
     int freqFlag = value.substring(second + 1, third).toInt(); // 1 => 315, 2 => 433 (per your code)
     String protocolStr = value.substring(third + 1);
+    
+    int reqeatFlag = value.substring(third + 1, fourth).toInt(); 
 
     unsigned long codeNum = (unsigned long) strtoul(codeStr.c_str(), nullptr, 10); // decimal
     int protocolNum = protocolStr.toInt();
@@ -81,11 +84,13 @@ class MyWriteCallbacks : public BLECharacteristicCallbacks {
     if (freqFlag == 1) {
       // 315 handler
       rx315.setProtocol(protocolNum);
+      rx315.setRepeatTransmit(reqeatFlag);
       rx315.send(codeNum, 24); // adjust bits if needed
       Serial.println("Sent on 315 MHz");
     } else {
       // default to 433
       rx433.setProtocol(protocolNum);
+      rx433.setRepeatTransmit(reqeatFlag);
       rx433.send(codeNum, 24); // adjust bits if needed
       Serial.println("Sent on 433 MHz");
     }
@@ -107,7 +112,7 @@ void setup() {
   Serial.println("RC-Switch receivers enabled");
 
   // BLE init
-  BLEDevice::init("ESP32_RF_Sniffer");
+  BLEDevice::init("ESP32 KeyWave V2");
   BLEServer *pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 

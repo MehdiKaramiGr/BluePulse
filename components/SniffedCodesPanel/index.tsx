@@ -26,6 +26,8 @@ interface SavedCode extends SniffedCode {
   Alias: string;
   SortId: number;
   Code: string;
+  Favorite: boolean;
+  Repeat: number;
 }
 
 const STORAGE_KEY = "@rf_codes";
@@ -127,10 +129,12 @@ export default function SniffedCodesPanel({
       Alias: Alias.trim(),
       SortId: savedCodes.length,
       Code: selectedCode?.raw,
+      Favorite: false,
+      Repeat: 1,
     };
 
     const updatedSavedCodes = [...savedCodes, newCode];
-    console.log("updatedSavedCodes :>> ", updatedSavedCodes);
+
     persistSavedCodes(updatedSavedCodes);
 
     setSniffedCodes((prev) => prev.filter((c) => c.id !== selectedCode.id));

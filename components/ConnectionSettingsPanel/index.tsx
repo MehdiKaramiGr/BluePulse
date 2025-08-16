@@ -84,7 +84,13 @@ const ConnectionSettingsPanel = ({
 
           <Button
             mode="contained"
-            onPress={connected ? disconnect : connect}
+            onPress={() => {
+              if (connected) {
+                disconnect();
+              } else {
+                connect();
+              }
+            }}
             disabled={!selectedDevice}
             style={styles.connectBtn}
           >

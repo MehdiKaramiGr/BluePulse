@@ -41,7 +41,7 @@ type CodeItem = {
   code: number;
   freq: number;
   protocol: number;
-  favorite: boolean;
+  Favorite: boolean;
 };
 
 type ThemeMode = "light" | "dark";
@@ -64,9 +64,9 @@ export default function RootLayout() {
   });
 
   const [routes] = useState([
-    { key: "qa", title: "qa-TX", focusedIcon: "bookmark" },
+    { key: "qa", title: "Quick Acess", focusedIcon: "bookmark" },
     { key: "rf", title: "RF-TX", focusedIcon: "radio-tower" },
-    { key: "ir", title: "IR-TX", focusedIcon: "remote" },
+    // { key: "ir", title: "IR-TX", focusedIcon: "remote" },
     { key: "rfrx", title: "RF-RX", focusedIcon: "radar" },
     { key: "settings", title: "Settings", focusedIcon: "cog" },
   ]);
@@ -81,15 +81,15 @@ export default function RootLayout() {
   const [scanning, setScanning] = useState(false);
   const [sniffedCodes, setSniffedCodes] = useState<SniffedCode[]>([]);
   const [codes, setCodes] = useState<CodeItem[]>([
-    { id: "1", name: "Garage Door", code: 123456, freq: 433, protocol: 1, favorite: true },
-    { id: "2", name: "Car Alarm", code: 654321, freq: 315, protocol: 1, favorite: true },
-    { id: "3", name: "Porch Light", code: 111222, freq: 433, protocol: 1, favorite: false },
-    { id: "4", name: "Garageasd Door", code: 123456, freq: 433, protocol: 1, favorite: true },
-    { id: "5", name: "Car Alarasdm", code: 654321, freq: 315, protocol: 1, favorite: true },
-    { id: "6", name: "Porch Ligasdsadht", code: 111222, freq: 433, protocol: 1, favorite: true },
+    { id: "1", name: "Garage Door", code: 123456, freq: 433, protocol: 1, Favorite: true },
+    { id: "2", name: "Car Alarm", code: 654321, freq: 315, protocol: 1, Favorite: true },
+    { id: "3", name: "Porch Light", code: 111222, freq: 433, protocol: 1, Favorite: false },
+    { id: "4", name: "Garageasd Door", code: 123456, freq: 433, protocol: 1, Favorite: true },
+    { id: "5", name: "Car Alarasdm", code: 654321, freq: 315, protocol: 1, Favorite: true },
+    { id: "6", name: "Porch Ligasdsadht", code: 111222, freq: 433, protocol: 1, Favorite: true },
   ]);
 
-  const favoriteCodes = codes.filter((c) => c.favorite);
+  const FavoriteCodes = codes.filter((c) => c.Favorite);
   useEffect(() => {
     requestPermissions();
     restoreConnection();
@@ -222,7 +222,7 @@ export default function RootLayout() {
   };
 
   const removeFavorite = (id: string) => {
-    setCodes((prev) => prev.map((c) => (c.id === id ? { ...c, favorite: false } : c)));
+    setCodes((prev) => prev.map((c) => (c.id === id ? { ...c, Favorite: false } : c)));
   };
 
   const theme: CustomTheme = {
@@ -236,9 +236,14 @@ export default function RootLayout() {
 
   const renderScene = BottomNavigation.SceneMap({
     qa: () => (
-      <QuickAccessPanel favorites={favoriteCodes} onSendCode={sendCodeViaBLE} onRemoveFavorite={removeFavorite} />
+      <QuickAccessPanel
+        open={index == 0}
+        onSendCode={sendDataToDevice}
+        onRemoveFavorite={removeFavorite}
+        deviceName={connectedDevice?.name}
+      />
     ),
-    rf: () => <RfPanel isOpen={index == 0} sendDataToDevice={sendDataToDevice} />,
+    rf: () => <RfPanel isOpen={index == 1} sendDataToDevice={sendDataToDevice} />,
     ir: IrMenu,
     rfrx: () => (
       <SniffedCodesPanel

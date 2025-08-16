@@ -1,63 +1,62 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useState } from "react";
 import { Alert, Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-
-type CodeItem = {
-  id: string;
-  name: string;
-  code: number;
-  freq: number;
-  protocol: number;
-  favorite: boolean;
-};
+import { useTheme } from "react-native-paper";
+import { STORAGE_KEY } from "./RfPanel";
+import { RfCode } from "./RfPanel/types";
 
 type QuickAccessPanelProps = {
-  favorites: CodeItem[];
-  onSendCode: (code: CodeItem) => void;
+  onSendCode: (code: string) => Promise<void>;
   onRemoveFavorite: (id: string) => void;
   deviceName?: string | null; // Bluetooth device name
+  open: boolean;
 };
 
 const screenWidth = Dimensions.get("window").width;
 const numColumns = 2;
 const itemWidth = screenWidth / numColumns - 28; // smaller than before
 
-export default function QuickAccessPanel({
-  favorites,
-  onSendCode,
-  onRemoveFavorite,
-  deviceName,
-}: QuickAccessPanelProps) {
-  const handleLongPress = (item: CodeItem) => {
+export default function QuickAccessPanel({ onSendCode, onRemoveFavorite, deviceName, open }: QuickAccessPanelProps) {
+  const { colors } = useTheme();
+  const [codes, setCodes] = useState<RfCode[]>([]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((data) => {
+      if (data) setCodes(JSON.parse(data)?.filter((c: RfCode) => c.Favorite));
+    });
+  }, [open]);
+
+  const handleLongPress = (item: RfCode) => {
     Alert.alert(
-      item.name,
+      item.Alias,
       "Options",
       [
-        { text: "Remove from favorites", onPress: () => onRemoveFavorite(item.id), style: "destructive" },
+        { text: "Remove from Favorites", onPress: () => onRemoveFavorite(item.Code), style: "destructive" },
         { text: "Cancel", style: "cancel" },
       ],
       { cancelable: true }
     );
   };
 
-  const renderItem = ({ item }: { item: CodeItem }) => (
+  const renderItem = ({ item }: { item: RfCode }) => (
     <TouchableOpacity
-      style={[styles.card, { width: itemWidth }]}
-      onPress={() => onSendCode(item)}
+      style={[styles.card, { width: itemWidth, backgroundColor: colors.elevation.level3 }]}
+      onPress={() => onSendCode(`c,${item?.Code},${item?.Freq == 315 ? 1 : 2},${item?.Protocol},${item?.Repeat}`)}
       onLongPress={() => handleLongPress(item)}
     >
-      <MaterialCommunityIcons name="remote" size={44} color="#fff" style={styles.icon} />
-      <Text style={styles.name} numberOfLines={1}>
-        {item.name}
+      <MaterialCommunityIcons name="remote" size={44} color={colors.onSurface} style={styles.icon} />
+      <Text style={[styles.name, { color: colors.onSurface }]} numberOfLines={1}>
+        {item.Alias}
       </Text>
-      <Text style={styles.subtext}>{`${item.freq} MHz`}</Text>
+      <Text style={[styles.subtext, { color: colors.onSurfaceDisabled || colors.onSurface }]}>
+        {`${item.Freq} MHz`}
+      </Text>
     </TouchableOpacity>
   );
 
-  if (!favorites.length) return null;
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Device connection status */}
       <View style={styles.connectionBar}>
         <MaterialCommunityIcons
@@ -70,23 +69,28 @@ export default function QuickAccessPanel({
         </Text>
       </View>
 
-      <Text style={styles.title}>Quick Access</Text>
+      {!codes.length ? (
+        <Text style={[styles.title, { color: colors.onBackground }]}>There are no Codes bookmarked in the app</Text>
+      ) : (
+        <>
+          <Text style={[styles.title, { color: colors.onBackground }]}>Quick Access</Text>
 
-      <FlatList
-        data={favorites}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        numColumns={numColumns}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.listContent}
-      />
+          <FlatList
+            data={codes}
+            keyExtractor={(item) => item.Code}
+            renderItem={renderItem}
+            numColumns={numColumns}
+            columnWrapperStyle={styles.row}
+            contentContainerStyle={styles.listContent}
+          />
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#111",
     flex: 1,
     paddingTop: 12,
   },
@@ -104,7 +108,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#fff",
     marginLeft: 16,
     marginBottom: 16,
   },
@@ -116,7 +119,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   card: {
-    backgroundColor: "#1c1c1e",
     borderRadius: 18,
     paddingVertical: 24,
     alignItems: "center",
@@ -133,11 +135,9 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#fff",
     marginBottom: 4,
   },
   subtext: {
     fontSize: 12,
-    color: "#a1a1a1",
   },
 });
