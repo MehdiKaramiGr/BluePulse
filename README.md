@@ -20,27 +20,9 @@
 
 ### Quick Access Panel
 
-| Quick Access                                 | saved-codes                                         | Setting                                 |
-| -------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
-| ![Home](assets/screenshots/quick-access.jpg) | ![Quick Access](assets/screenshots/saved-codes.jpg) | ![Edit](assets/screenshots/setting.jpg) |
-
-![Quick Access](assets/screenshots/quick-access.jpg)
-
-### Saved Codes
-
-![Saved Codes](assets/screenshots/saved-codes.jpg)
-
-### Edit RF Code
-
-![Edit Code](assets/screenshots/save-rf.jpg)
-
-### Sniffing Mode
-
-![Sniffing Mode](assets/screenshots/sniffing-mode.jpg)
-
-### Setting
-
-![Setting](assets/screenshots/setting.jpg)
+| Quick Access                                          | saved codes                                        | Edit RF Code                                     | Setting                                    |
+| ----------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------ |
+| ![Quick Access ](assets/screenshots/quick-access.jpg) | ![saved-codes](assets/screenshots/saved-codes.jpg) | ![Edit RF Code ](assets/screenshots/save-rf.jpg) | ![Setting](assets/screenshots/setting.jpg) |
 
 ---
 
