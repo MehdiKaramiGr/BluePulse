@@ -18,6 +18,26 @@
 
 ## 📸 Screenshots
 
+### Quick Access Panel
+
+![Quick Access](assets/screenshots/quick-access.jpg)
+
+### Saved Codes
+
+![Saved Codes](assets/screenshots/saved-codes.jpg)
+
+### Edit RF Code
+
+![Edit Code](assets/screenshots/save-rf.jpg)
+
+### Sniffing Mode
+
+![Sniffing Mode](assets/screenshots/sniffing-mode.jpg)
+
+### Setting
+
+![Setting](assets/screenshots/setting.jpg)
+
 ---
 
 ## 💡 Use Case
