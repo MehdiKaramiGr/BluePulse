@@ -49,7 +49,7 @@ It works together with a companion mobile app (React Native) to provide a clean 
 - `<REPEAT>` → number of times to transmit
 
 Example:
-c,<CODE>,<FREQ_FLAG>,<PROTOCOL>,<REPEAT>
+`c,<CODE>,<FREQ_FLAG>,<PROTOCOL>,<REPEAT>`
 
 - `<CODE>` → RF code (decimal)
 - `<FREQ_FLAG>` → `1` = 315 MHz, `2` = 433 MHz
@@ -57,7 +57,7 @@ c,<CODE>,<FREQ_FLAG>,<PROTOCOL>,<REPEAT>
 - `<REPEAT>` → number of times to transmit
 
 Example:
-c,123456,2,1,10
+`c,123456,2,1,10`
 ➡️ Sends code `123456` at **433 MHz**, using **protocol 1**, repeated **10 times**.
 
 ---
@@ -65,7 +65,7 @@ c,123456,2,1,10
 ## 📤 BLE Notifications
 
 When an RF code is received, it is pushed via BLE in the format:
-<CODE>,<FREQ_FLAG>,<PROTOCOL>
+`<CODE>,<FREQ_FLAG>,<PROTOCOL>`
 
 Example:
 654321,1,3
