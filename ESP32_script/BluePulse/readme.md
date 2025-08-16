@@ -117,9 +117,9 @@ Call `enableReceive(pin)` and `enableTransmit(pin)` per instance
 
 ```cpp
 #include "lib/RCSwitch2.h"
+```
 
 ---
-
 
 ## 📱 Companion App
 
@@ -153,4 +153,7 @@ MIT License. Free to use, modify, and distribute.
 - [RC-Switch](https://github.com/sui77/rc-switch)
 - [ESP32 BLE Arduino](https://github.com/nkolban/ESP32_BLE_Arduino)
 - Inspiration from open-source RF remote projects
+
+```
+
 ```
