@@ -4,7 +4,7 @@
 #include <BLE2902.h>
 
 #include <RCSwitch.h>
-#include "lib/RCSwitch2.h"
+#include <RCSwitch2.h>
 
 // RF Pins
 #define tx315PIN 27
@@ -67,9 +67,10 @@ class MyWriteCallbacks : public BLECharacteristicCallbacks {
 
     String codeStr = value.substring(first + 1, second);
     int freqFlag = value.substring(second + 1, third).toInt(); // 1 => 315, 2 => 433 (per your code)
-    String protocolStr = value.substring(third + 1);
+    String protocolStr = value.substring(third + 1 , fourth);
     
-    int reqeatFlag = value.substring(third + 1, fourth).toInt(); 
+    int repeatFlag = value.substring(fourth + 1).toInt(); 
+    Serial.println(repeatFlag);
 
     unsigned long codeNum = (unsigned long) strtoul(codeStr.c_str(), nullptr, 10); // decimal
     int protocolNum = protocolStr.toInt();
@@ -80,19 +81,33 @@ class MyWriteCallbacks : public BLECharacteristicCallbacks {
       Serial.println("Raw protocol currently not implemented.");
       return;
     }
-
+    
     if (freqFlag == 1) {
-      // 315 handler
-      rx315.setProtocol(protocolNum);
-      rx315.setRepeatTransmit(reqeatFlag);
-      rx315.send(codeNum, 24); // adjust bits if needed
-      Serial.println("Sent on 315 MHz");
+        rx315.setProtocol(protocolNum);
+        if (repeatFlag <= 1) {
+            rx315.send(codeNum, 24);
+            Serial.println("Sent on 315 MHz once");
+        } else {
+            unsigned long startTime = millis();
+            while (millis() - startTime < repeatFlag * 1000UL) {
+                rx315.send(codeNum, 24);
+                Serial.println("Sent on 315 MHz");
+                delay(350);
+            }
+        }
     } else {
-      // default to 433
-      rx433.setProtocol(protocolNum);
-      rx433.setRepeatTransmit(reqeatFlag);
-      rx433.send(codeNum, 24); // adjust bits if needed
-      Serial.println("Sent on 433 MHz");
+        rx433.setProtocol(protocolNum);
+        if (repeatFlag <= 1) {
+            rx433.send(codeNum, 24);
+            Serial.println("Sent on 433 MHz once");
+        } else {
+            unsigned long startTime = millis();
+            while (millis() - startTime < repeatFlag * 1000UL) {
+                rx433.send(codeNum, 24);
+                Serial.println("Sent on 433 MHz");
+                delay(350);
+            }
+        }
     }
   }
 };
@@ -170,6 +185,8 @@ void notify() {
     message = String(code) + ",2," + String(protocol);
     rx433.resetAvailable();
     updated = true;
+    Serial.println(rx433.getReceivedBitlength());
+    Serial.println(rx433.getReceivedDelay());
 
   }
 
@@ -187,6 +204,5 @@ void notify() {
     pCharacteristicTX->notify();
     Serial.print("Sent via BLE: ");
     Serial.println(message);
-
   }
 }
