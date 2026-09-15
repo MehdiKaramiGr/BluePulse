@@ -1,104 +1,146 @@
-# BluePulse
+# 🔵 ESP32 KeyWave V2
 
-**BluePulse** is a cross-platform React Native app (built with Expo) designed to communicate with ESP32-based RF control hardware via Bluetooth. The app allows users to manage, send, and organize RF codes over BLE with an intuitive UI.
-
----
-
-## 🔧 Features
-
-- 📡 Connects to ESP32 via Bluetooth Low Energy (BLE)
-- 📁 View and manage a list of saved RF codes
-- 🎯 Tap to send RF code (single or rapid fire)
-- 🛠️ Edit code details (name, frequency, payload)
-- ⚠️ Delete codes with confirmation modal
-- 🆕 Add new RF codes via modal
-- 🔁 Toggle between 315 MHz and 433 MHz
+An **ESP32-based Bluetooth Low Energy (BLE) to RF bridge** that allows you to send and receive 315/433 MHz RF codes wirelessly.  
+It works together with a companion mobile app (React Native) to provide a clean UI for controlling and managing RF devices.
 
 ---
 
-## 📸 Screenshots
+## ✨ Features
 
-### Quick Access Panel
-
-| Quick Access                                          | saved codes                                        | Edit RF Code                                     | Setting                                    |
-| ----------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------ | ------------------------------------------ |
-| ![Quick Access ](assets/screenshots/quick-access.jpg) | ![saved-codes](assets/screenshots/saved-codes.jpg) | ![Edit RF Code ](assets/screenshots/save-rf.jpg) | ![Setting](assets/screenshots/setting.jpg) |
-
----
-
-## 💡 Use Case
-
-This app replaces the need for a physical screen/input on ESP32-based RF remote devices. It is designed as part of a DIY toolkit to interact with smart home RF devices and IR devieces in future developments (e.g. garage doors, lights, etc.).
+- 📡 **Transmit RF codes** at both 315 MHz and 433 MHz
+- 📥 **Receive RF codes** and forward them via BLE
+- 🔗 **BLE connectivity** for pairing with mobile apps
+- ⚡ **Low latency** sending and receiving
+- 🗂️ Support for multiple protocols (via [RC-Switch](https://github.com/sui77/rc-switch) & modified RCSwitch2)
+- 🔄 Automatic BLE re-advertising when disconnected
 
 ---
 
-## 📦 Tech Stack
+## 🛠️ Hardware Setup
 
-- React Native + Expo
-- React Navigation
-- Bluetooth integration using Expo BLE
-- TypeScript
+- **ESP32 DevKit** (tested on ESP32-WROOM)
+- **One CC1101 SPI RF transceiver** with a suitable antenna
+
+### Pin Mapping
+
+| CC1101 pin | ESP32 GPIO |
+| ---------- | ---------- |
+| VCC        | 3V3        |
+| GND        | GND        |
+| SCK        | 18         |
+| MISO/GDO1  | 19         |
+| MOSI       | 23         |
+| CSN        | 5          |
+| GDO0       | 4          |
+
+⚠️ Supply the CC1101 from **3.3 V only**, never 5 V. One CC1101 is time-shared: it switches between 315 MHz and 433.92 MHz every 150 ms while idle, then immediately selects the requested band for a BLE transmit command. This preserves the app protocol, but it cannot receive both bands literally at the same instant.
 
 ---
 
-## 🚀 How to Run
+## 📡 BLE Service
 
-````bash
-git clone https://github.com/mehdikaramigr/bluepulse
-cd bluepulse
-npm install
-npx expo start
+- **Service UUID**: `12345678-1234-1234-1234-1234567890ab`
+- **Characteristic (TX → Notify)**: `12345678-1234-1234-1234-1234567890ac`
+- **Characteristic (RX → Write)**: `12345678-1234-1234-1234-1234567890ad`
 
+### BLE Command Format
 
+- `<CODE>` → RF code (decimal)
+- `<FREQ_FLAG>` → `1` = 315 MHz, `2` = 433 MHz
+- `<PROTOCOL>` → RC-Switch protocol number (e.g. 1, 2, 3...)
+- `<REPEAT>` → number of times to transmit
 
+Example:
+`c,<CODE>,<FREQ_FLAG>,<PROTOCOL>,<REPEAT>`
 
-# Welcome to your Expo app 👋
+- `<CODE>` → RF code (decimal)
+- `<FREQ_FLAG>` → `1` = 315 MHz, `2` = 433 MHz
+- `<PROTOCOL>` → RC-Switch protocol number (e.g. 1, 2, 3...)
+- `<REPEAT>` → number of times to transmit
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Example:
+`c,123456,2,1,10`
+➡️ Sends code `123456` at **433 MHz**, using **protocol 1**, repeated **10 times**.
 
-## Get started
+---
 
-1. Install dependencies
+## 📤 BLE Notifications
 
-   ```bash
-   npm install
-````
+When an RF code is received, it is pushed via BLE in the format:
+`<CODE>,<FREQ_FLAG>,<PROTOCOL>`
 
-2. Start the app
+Example:
+654321,1,3
+➡️ Received code `654321` at **315 MHz**, protocol **3**.
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🔧 Installation
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+1. Install **Arduino IDE** or **PlatformIO**
+2. Add the [ESP32 board package](https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html)
+3. Install required libraries:
+   - [SmartRC-CC1101-Driver-Lib](https://github.com/LSatan/SmartRC-CC1101-Driver-Lib)
+   - [rc-switch](https://github.com/sui77/rc-switch)
+   - ESP32 BLE libraries (built-in with Arduino ESP32)
+4. Flash this code to your ESP32.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## ⚙️ Modified RC-Switch2 Library
 
-When you're ready, run:
+This project uses a modified version of [RC-Switch](https://github.com/sui77/rc-switch) called **RC-Switch2**.
 
-```bash
-npm run reset-project
+### Why only one RC-Switch instance?
+
+The CC1101 is a single, tunable radio rather than four separate fixed-frequency modules. The firmware uses one `RCSwitch` instance on GDO0 and retunes the CC1101 between the two bands. BLE messages, UUIDs, command syntax, and receive notifications remain unchanged.
+
+---
+
+### 2️⃣ How to include it in your repo
+
+- Put the `RCSwitch2.h` and `RCSwitch2.cpp` **directly in your repo** (e.g., in a `lib/` folder) next to your main Arduino sketch.
+- In your code:
+
+```cpp
+#include "lib/RCSwitch2.h"
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## 📱 Companion App
 
-To learn more about developing your project with Expo, look at the following resources:
+This firmware pairs with the **BluePulse React Native app** for iOS/Android.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- Manage your saved RF codes
+- Tap to send codes instantly
+- Auto-detect received RF codes and bookmark them
 
-## Join the community
+👉 [BluePulse App Repo](#) _(link to your RN repo when public)_
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 📝 Roadmap
+
+- [ ] Add raw protocol support
+- [ ] Add OTA updates
+- [ ] Expand to support more RF frequencies
+- [ ] iOS support improvements
+
+---
+
+## 📜 License
+
+MIT License. Free to use, modify, and distribute.
+
+---
+
+## 🙌 Acknowledgments
+
+- [RC-Switch](https://github.com/sui77/rc-switch)
+- [ESP32 BLE Arduino](https://github.com/nkolban/ESP32_BLE_Arduino)
+- Inspiration from open-source RF remote projects
+
+```
+
+```
