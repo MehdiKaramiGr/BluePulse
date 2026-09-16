@@ -1,242 +1,366 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useState } from "react";
-import { FlatList, NativeEventSubscription, StyleSheet, View } from "react-native";
-import { Device } from "react-native-ble-plx";
+import { Buffer } from "buffer";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, FlatList, StyleSheet, View } from "react-native";
+import { Device, Subscription } from "react-native-ble-plx";
 import {
   Button,
   Card,
+  Chip,
   Dialog,
-  IconButton,
-  MD3Theme,
   Portal,
+  Snackbar,
+  Switch,
   Text,
   TextInput,
-  Tooltip,
   useTheme,
 } from "react-native-paper";
 
+import {
+  buildTransmitCommand,
+  createCodeId,
+  DEFAULT_RF_LIBRARY_SETTINGS,
+  loadRfCodes,
+  loadRfLibrarySettings,
+  saveRfCodes,
+} from "../RfPanel/codeLibrary";
+import { RfCode } from "../RfPanel/types";
+
 export interface SniffedCode {
-  id: string;
-  raw: string;
   Freq: number;
   Protocol: number;
+  id: string;
+  raw: string;
 }
 
-interface SavedCode extends SniffedCode {
-  Alias: string;
-  SortId: number;
-  Code: string;
-  Favorite: boolean;
-  Repeat: number;
-}
-
-const STORAGE_KEY = "@rf_codes";
-interface BleDataListenerProps {
-  device: Device | null;
-  serviceUUID: string;
+interface SniffedCodesPanelProps {
   characteristicUUID: string;
-  sniffedCodes: SniffedCode[];
+  device: Device | null;
+  isOpen: boolean;
+  sendDataToDevice: (data: string) => Promise<void>;
+  serviceUUID: string;
   setSniffedCodes: React.Dispatch<React.SetStateAction<SniffedCode[]>>;
-  sendDataToDevice: (data: string) => void;
+  sniffedCodes: SniffedCode[];
+}
+
+function capturedCodeSignature(code: Pick<SniffedCode, "raw" | "Freq" | "Protocol">) {
+  return [code.raw, code.Freq, code.Protocol].join("|");
 }
 
 export default function SniffedCodesPanel({
-  device,
-  serviceUUID,
   characteristicUUID,
-  sniffedCodes,
-  setSniffedCodes,
+  device,
+  isOpen,
   sendDataToDevice,
-}: BleDataListenerProps) {
+  serviceUUID,
+  setSniffedCodes,
+  sniffedCodes,
+}: SniffedCodesPanelProps) {
   const theme = useTheme();
-  const styles = useThemedStyles(theme);
-
-  const [savedCodes, setSavedCodes] = useState<SavedCode[]>([]);
+  const [savedCodes, setSavedCodes] = useState<RfCode[]>([]);
+  const [defaultRepeat, setDefaultRepeat] = useState(DEFAULT_RF_LIBRARY_SETTINGS.defaultRepeat);
   const [selectedCode, setSelectedCode] = useState<SniffedCode | null>(null);
-  const [Alias, setAlias] = useState("");
-
-  const [subscription, setSubscription] = useState<NativeEventSubscription | null>(null);
-  const [dataList, setDataList] = useState<string[]>([]);
+  const [alias, setAlias] = useState("");
+  const [repeat, setRepeat] = useState(String(DEFAULT_RF_LIBRARY_SETTINGS.defaultRepeat));
+  const [favorite, setFavorite] = useState(true);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    if (!device) return;
+    if (!isOpen) return;
+    let mounted = true;
 
-    // Subscribe to notifications on characteristic
-    const subscribe = async () => {
-      try {
-        const subscription = device.monitorCharacteristicForService(
-          serviceUUID,
-          characteristicUUID,
-          (error, characteristic) => {
-            if (error) {
-              console.error("Monitor error:", error);
-              return;
-            }
-            if (characteristic?.value) {
-              // Decode base64 data to string
-              const decoded = atob(characteristic.value)?.split(",");
-
-              let res = {
-                id: decoded?.[0],
-                raw: decoded?.[0],
-                Freq: decoded?.[1] == "1" ? 315 : 443,
-                Protocol: Number(decoded?.[2]),
-              };
-              if (!!res?.raw && !!res?.Freq && !!res?.Protocol) {
-                setSniffedCodes((prev) => {
-                  if (!prev?.map(({ id }) => id).includes(decoded?.[0])) {
-                    return [res, ...prev];
-                  } else {
-                    return prev;
-                  }
-                });
-              }
-            }
-          }
-        );
-        setSubscription(subscription);
-      } catch (e) {
-        console.error("Subscribe failed", e);
-      }
-    };
-
-    subscribe();
-
-    // Cleanup on unmount or device change
-    return () => {
-      subscription?.remove();
-      setSubscription(null);
-    };
-  }, [device, serviceUUID, characteristicUUID]);
-
-  // Load saved codes from AsyncStorage
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((data) => {
-      if (data) setSavedCodes(JSON.parse(data));
+    void Promise.all([loadRfCodes(), loadRfLibrarySettings()]).then(([codes, settings]) => {
+      if (!mounted) return;
+      setSavedCodes(codes);
+      setDefaultRepeat(settings.defaultRepeat);
+      setRepeat(String(settings.defaultRepeat));
     });
-  }, []);
 
-  const persistSavedCodes = async (codes: SavedCode[]) => {
-    setSavedCodes(codes);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(codes));
-  };
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen]);
 
-  const saveCode = () => {
-    if (!selectedCode || !Alias.trim()) return;
+  useEffect(() => {
+    if (!isOpen || !device) return;
 
-    const newCode: SavedCode = {
-      ...selectedCode,
-      Alias: Alias.trim(),
+    let subscription: Subscription | undefined;
+    try {
+      subscription = device.monitorCharacteristicForService(
+        serviceUUID,
+        characteristicUUID,
+        (error, characteristic) => {
+          if (error) {
+            setNotice("Capture listener error: " + error.message);
+            return;
+          }
+          if (!characteristic?.value) return;
+
+          const decoded = Buffer.from(characteristic.value, "base64").toString("utf8").trim().split(",");
+          const raw = decoded[0]?.trim();
+          const frequencyFlag = decoded[1]?.trim();
+          const protocol = Number(decoded[2]);
+          const frequency = frequencyFlag === "1" ? 315 : frequencyFlag === "2" ? 433 : 0;
+
+          if (!raw || !/^[0-9]+$/.test(raw) || !frequency || !Number.isInteger(protocol) || protocol < 1) {
+            return;
+          }
+
+          const captured: SniffedCode = {
+            id: [raw, frequency, protocol].join("-"),
+            raw,
+            Freq: frequency,
+            Protocol: protocol,
+          };
+          setSniffedCodes((current) => {
+            const signature = capturedCodeSignature(captured);
+            if (current.some((code) => capturedCodeSignature(code) === signature)) return current;
+            return [captured, ...current].slice(0, 200);
+          });
+        }
+      );
+    } catch (error) {
+      setNotice("Could not start capture: " + (error instanceof Error ? error.message : "unknown error"));
+    }
+
+    return () => subscription?.remove();
+  }, [characteristicUUID, device, isOpen, serviceUUID, setSniffedCodes]);
+
+  const openSaveDialog = useCallback(
+    (code: SniffedCode) => {
+      setSelectedCode(code);
+      setAlias("Code " + code.raw.slice(-6));
+      setRepeat(String(defaultRepeat));
+      setFavorite(true);
+    },
+    [defaultRepeat]
+  );
+
+  const saveCapturedCode = useCallback(async () => {
+    if (!selectedCode) return;
+    const name = alias.trim();
+    const repeatValue = Number(repeat);
+
+    if (!name) {
+      setNotice("Give the captured code a name before saving.");
+      return;
+    }
+    if (!Number.isInteger(repeatValue) || repeatValue < 1 || repeatValue > 99) {
+      setNotice("Repeat must be a whole number from 1 to 99.");
+      return;
+    }
+
+    const existing = savedCodes.find(
+      (code) =>
+        code.Code === selectedCode.raw &&
+        code.Freq === selectedCode.Freq &&
+        code.Protocol === selectedCode.Protocol
+    );
+    if (existing) {
+      setNotice("This signal is already saved as " + existing.Alias + ".");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const codeToSave: RfCode = {
+      id: createCodeId(),
+      Alias: name,
+      Code: selectedCode.raw,
+      Freq: selectedCode.Freq,
+      Protocol: selectedCode.Protocol,
+      Repeat: repeatValue,
+      Favorite: favorite,
       SortId: savedCodes.length,
-      Code: selectedCode?.raw,
-      Favorite: false,
-      Repeat: 1,
+      createdAt: now,
+      updatedAt: now,
     };
 
-    const updatedSavedCodes = [...savedCodes, newCode];
+    try {
+      const nextSavedCodes = await saveRfCodes([...savedCodes, codeToSave]);
+      setSavedCodes(nextSavedCodes);
+      setSniffedCodes((current) => current.filter((code) => code.id !== selectedCode.id));
+      setSelectedCode(null);
+      setNotice("Saved " + name + ".");
+    } catch {
+      setNotice("Could not save the captured code.");
+    }
+  }, [alias, favorite, repeat, savedCodes, selectedCode, setSniffedCodes]);
 
-    persistSavedCodes(updatedSavedCodes);
+  const sendCapturedCode = useCallback(
+    async (code: SniffedCode) => {
+      await sendDataToDevice(
+        buildTransmitCommand({
+          Code: code.raw,
+          Freq: code.Freq,
+          Protocol: code.Protocol,
+          Repeat: defaultRepeat,
+        })
+      );
+    },
+    [defaultRepeat, sendDataToDevice]
+  );
 
-    setSniffedCodes((prev) => prev.filter((c) => c.id !== selectedCode.id));
-    setSelectedCode(null);
-    setAlias("");
-  };
-
-  const clearAllCodes = () => {
-    // Clear in-memory lists
-    setSniffedCodes([]);
-  };
+  const clearCapturedCodes = useCallback(() => {
+    Alert.alert("Clear captured codes?", "This only clears the temporary capture list. Saved codes are unchanged.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Clear", style: "destructive", onPress: () => setSniffedCodes([]) },
+    ]);
+  }, [setSniffedCodes]);
 
   return (
-    <View style={styles.container}>
-      {sniffedCodes.length === 0 ? (
-        <Text style={styles.emptyText}>No codes received yet.</Text>
-      ) : (
-        <FlatList
-          data={sniffedCodes}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <Card style={styles.card}>
-              <Card.Title
-                title={`Code: ${item.raw}`}
-                subtitle={`Freq: ${item.Freq} MHz, Protocol: ${item.Protocol}`}
-                right={(props) => (
-                  <View style={styles.cardActions}>
-                    <Tooltip title="Send the code">
-                      <IconButton
-                        icon="transmission-tower-export"
-                        onPress={() => {
-                          sendDataToDevice(`c,${item?.raw},${item?.Freq == 315 ? 1 : 2},${item?.Protocol}`);
-                        }}
-                        {...props}
-                      />
-                    </Tooltip>
-                    <IconButton {...props} icon="content-save-outline" onPress={() => setSelectedCode(item)} />
-                  </View>
-                )}
-              />
-            </Card>
-          )}
-        />
-      )}
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <FlatList
+        contentContainerStyle={styles.listContent}
+        data={sniffedCodes}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text variant="titleMedium">{device ? "Listening for RF codes" : "No bridge connected"}</Text>
+            <Text style={styles.muted} variant="bodyMedium">
+              {device
+                ? "Press a compatible remote near the receiver. Each unique code will appear here."
+                : "Connect your BluePulse bridge in Settings to start receiving codes."}
+            </Text>
+          </View>
+        }
+        ListHeaderComponent={
+          <Card mode="contained" style={styles.headerCard}>
+            <Card.Title
+              title="Code capture"
+              subtitle={device ? "Listening on 315 and 433 MHz" : "Connect a bridge to start listening"}
+            />
+            <Card.Content style={styles.headerContent}>
+              <View style={styles.statsRow}>
+                <Chip icon="radar">{sniffedCodes.length} captured</Chip>
+                <Chip icon="repeat">{defaultRepeat} default repeats</Chip>
+              </View>
+              {sniffedCodes.length > 0 ? (
+                <Button icon="delete-sweep-outline" mode="outlined" onPress={clearCapturedCodes}>
+                  Clear captures
+                </Button>
+              ) : null}
+            </Card.Content>
+          </Card>
+        }
+        renderItem={({ item }) => (
+          <Card mode="contained" style={styles.codeCard}>
+            <Card.Title
+              title="Received RF code"
+              subtitle={item.Freq + " MHz · protocol " + item.Protocol}
+            />
+            <Card.Content style={styles.codeContent}>
+              <Text selectable style={styles.codeValue} variant="titleLarge">
+                {item.raw}
+              </Text>
+              <Text style={styles.muted} variant="bodySmall">
+                Send now uses your default repeat setting ({defaultRepeat}).
+              </Text>
+            </Card.Content>
+            <Card.Actions>
+              <Button disabled={!device} icon="send" mode="contained-tonal" onPress={() => void sendCapturedCode(item)}>
+                Send now
+              </Button>
+              <Button icon="content-save-outline" mode="contained" onPress={() => openSaveDialog(item)}>
+                Save code
+              </Button>
+            </Card.Actions>
+          </Card>
+        )}
+      />
 
       <Portal>
-        <Dialog visible={!!selectedCode} onDismiss={() => setSelectedCode(null)}>
-          <Dialog.Title>Save Code</Dialog.Title>
-          <Dialog.Content>
+        <Dialog visible={selectedCode !== null} onDismiss={() => setSelectedCode(null)}>
+          <Dialog.Title>Save captured code</Dialog.Title>
+          <Dialog.Content style={styles.dialogContent}>
+            {selectedCode ? (
+              <Text variant="bodyMedium">
+                {selectedCode.raw} · {selectedCode.Freq} MHz · protocol {selectedCode.Protocol}
+              </Text>
+            ) : null}
             <TextInput
-              placeholder="Enter Alias"
-              value={Alias}
-              onChangeText={setAlias}
-              style={styles.input}
+              autoFocus
+              label="Name"
               mode="outlined"
-              placeholderTextColor={theme.colors.onSurfaceVariant}
+              onChangeText={setAlias}
+              value={alias}
             />
+            <TextInput
+              keyboardType="number-pad"
+              label="Repeat count"
+              mode="outlined"
+              onChangeText={setRepeat}
+              value={repeat}
+            />
+            <View style={styles.switchRow}>
+              <View>
+                <Text variant="labelLarge">Quick Access</Text>
+                <Text style={styles.muted} variant="bodySmall">
+                  Show this code in Favorites for one-tap sending.
+                </Text>
+              </View>
+              <Switch onValueChange={setFavorite} value={favorite} />
+            </View>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setSelectedCode(null)}>Cancel</Button>
-            <Button onPress={saveCode}>Save</Button>
+            <Button mode="contained" onPress={() => void saveCapturedCode()}>
+              Save
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
-      {sniffedCodes?.length > 0 ? (
-        <Button
-          mode="contained"
-          onPress={clearAllCodes}
-          style={{ marginVertical: 8, position: "absolute", bottom: 0, zIndex: 5 }}
-        >
-          Clear All Codes
-        </Button>
-      ) : null}
+
+      <Snackbar duration={3_500} onDismiss={() => setNotice("")} visible={Boolean(notice)}>
+        {notice}
+      </Snackbar>
     </View>
   );
 }
 
-const useThemedStyles = (theme: MD3Theme) =>
-  StyleSheet.create({
-    container: {
-      padding: 12,
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    card: {
-      marginVertical: 6,
-      backgroundColor: theme.colors.surfaceVariant,
-    },
-    input: {
-      backgroundColor: theme.colors.surface,
-      color: theme.colors.onSurface,
-      marginVertical: 8,
-      borderRadius: 8,
-    },
-    emptyText: {
-      textAlign: "center",
-      marginTop: 50,
-      color: theme.colors.onSurfaceVariant,
-    },
-    cardActions: {
-      flexDirection: "row",
-      justifyContent: "flex-end",
-      alignItems: "center",
-    },
-  });
+const styles = StyleSheet.create({
+  codeCard: {
+    marginTop: 8,
+  },
+  codeContent: {
+    gap: 6,
+  },
+  codeValue: {
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 0.5,
+  },
+  container: {
+    flex: 1,
+  },
+  dialogContent: {
+    gap: 12,
+  },
+  emptyState: {
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 32,
+    paddingTop: 72,
+  },
+  headerCard: {
+    marginBottom: 4,
+  },
+  headerContent: {
+    gap: 12,
+  },
+  listContent: {
+    padding: 12,
+    paddingBottom: 104,
+  },
+  muted: {
+    opacity: 0.72,
+  },
+  statsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  switchRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+});

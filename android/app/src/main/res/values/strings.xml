@@ -1,0 +1,19 @@
+<resources>
+  <string name="app_name">BluePulse</string>
+  <string name="widget_name">BluePulse Quick Action</string>
+  <string name="widget_description">Send one configured BluePulse Quick Access action.</string>
+  <string name="widget_needs_setup">Tap to choose a BluePulse tile</string>
+  <string name="widget_needs_setup_icon">+</string>
+  <string name="widget_ready">Ready</string>
+  <string name="widget_sending">Sending %1$s…</string>
+  <string name="widget_sent">Signal sent</string>
+  <string name="widget_connection_failed">Bridge connection failed</string>
+  <string name="widget_send_failed">Could not send signal</string>
+  <string name="widget_timed_out">Bridge did not respond</string>
+  <string name="widget_bluetooth_permission_needed">Bluetooth permission needed</string>
+  <string name="widget_bluetooth_off">Bluetooth is off</string>
+  <string name="widget_bridge_not_found">BluePulse bridge not found</string>
+  <string name="expo_system_ui_user_interface_style" translatable="false">automatic</string>
+  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
+  <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
+</resources>
