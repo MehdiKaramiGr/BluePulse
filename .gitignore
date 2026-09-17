@@ -13,6 +13,10 @@ expo-env.d.ts
 .kotlin/
 .idea/
 android/local.properties
+android/app/release/
+*.apk
+*.aab
+*.dm
 *.orig.*
 *.jks
 *.keystore
