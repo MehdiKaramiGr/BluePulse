@@ -62,6 +62,14 @@ Example:
 `c,123456,2,1,10`
 ➡️ Sends code `123456` at **433 MHz**, using **protocol 1**, repeated **10 times**.
 
+### Quick Access burst command
+
+Quick Access can optionally run a saved code as a timed burst. The app sends one command to the ESP32, which keeps the timing local to the radio:
+
+`b,<CODE>,<FREQ_FLAG>,<PROTOCOL>,<ITERATIONS>,<GAP_MS>,<REPEAT_SECONDS>`
+
+For example, `b,123456,2,1,3,300,1` transmits the saved 433 MHz code three times with a 300 ms gap between plays. Configure this from a saved code's Quick Access options or by long-pressing its Quick Access card.
+
 ---
 
 ## 📤 BLE Notifications
@@ -72,6 +80,26 @@ When an RF code is received, it is pushed via BLE in the format:
 Example:
 654321,1,3
 ➡️ Received code `654321` at **315 MHz**, protocol **3**.
+
+### 🔬 Raw signal capture and replay
+
+The **Raw** tab in the companion app locks the CC1101 to exactly one selected band—**315 MHz** or **433 MHz**—instead of alternating between them. It captures one RF burst as GPIO edge timings, renders those high/low pulse widths on a time ruler, and can replay a selected inclusive range of pulses. The scope can be entered in µs, ms, or seconds; the app rounds it outward to complete pulses so replay keeps the original timing intact.
+
+This requires flashing `ESP32_script/BluePulse/C1101.ino`. The firmware adds a second notify characteristic for raw timing data:
+
+- **Raw notify UUID**: `12345678-1234-1234-1234-1234567890ae`
+
+The app issues these internal commands on the existing write characteristic:
+
+- `raw,capture,<FREQ_FLAG>` — arm a single fixed-frequency capture
+- `raw,stop` — stop the current raw capture while remaining on the selected band
+- `raw,replay,<CAPTURE_ID>,<START_INDEX>,<END_INDEX>` — replay an inclusive pulse range
+- `raw,exit` — leave raw mode and resume the normal 315/433 MHz scan
+- `raw,u,s,<FREQ_FLAG>,<PULSE_COUNT>` — begin uploading a saved waveform
+- `raw,u,<INDEX>,<LEVEL>,<DURATION_US>` — upload one high/low pulse segment
+- `raw,u,e` — finish the upload and receive a replayable capture ID
+
+The app can save up to 25 named waveforms locally, including their carrier frequency and selected scope. Loading one transfers its pulse timings back to the ESP32 before replay. Raw captures and uploaded waveforms are held in ESP32 memory, are limited to 512 pulse segments, and are intentionally not persisted after a board restart.
 
 ---
 
@@ -115,6 +143,24 @@ This firmware pairs with the **BluePulse React Native app** for iOS/Android.
 - Manage your saved RF codes
 - Tap to send codes instantly
 - Auto-detect received RF codes and bookmark them
+- Search, favorite, share, and import saved RF-code libraries as JSON text
+- Set a default transmit repeat count for newly saved or captured codes
+- Create timed Quick Access bursts with editable iterations and millisecond gaps
+- Create reusable Android home-screen tiles for any saved Quick Access action
+
+### Android home-screen Quick Action widget
+
+Create reusable widget tiles from **Quick Access → Home widget**. Each tile is an independent saved RF action. Choose an optional photo for the card's top media panel; the information surface below uses a Material 3-inspired design that follows your phone's light or dark appearance. It fills the size Android gives it and shows the saved-code name, frequency, bridge/send status, and Single or Burst mode.
+
+Tiles default to a 1×1 cell and can be resized freely. Use **Add this tile to home screen** in a saved tile to add that exact tile as its own widget; confirm Android's prompt. You can add as many independent tiles as you need.
+
+1. Connect the BluePulse bridge in the app, then make the desired saved codes available in **Quick Access**.
+2. Open **Quick Access** and tap **Home widget**. Create one or more tiles by choosing a saved action and, optionally, a photo.
+3. Select a saved tile and tap **Add this tile to home screen**, then confirm Android's prompt. As a fallback, you can also drag **BluePulse Quick Action** from the Android widget picker and tap the unconfigured tile to choose its action.
+
+The widget requires the Android development or production build—**it cannot run inside Expo Go**. Bluetooth must be on, the bridge must be in range, and the app must already have Bluetooth permission. A widget action opens a short dedicated BLE connection to the bridge, so the main app does not need to be visible.
+
+For safety, remember that tapping a tile transmits immediately. Reopen **Home widget** after changing the saved code or its burst behavior so its tile command stays in sync.
 
 👉 [BluePulse App Repo](#) _(link to your RN repo when public)_
 
@@ -122,7 +168,7 @@ This firmware pairs with the **BluePulse React Native app** for iOS/Android.
 
 ## 📝 Roadmap
 
-- [ ] Add raw protocol support
+- [x] Add raw timing capture and selected-range replay (CC1101 firmware)
 - [ ] Add OTA updates
 - [ ] Expand to support more RF frequencies
 - [ ] iOS support improvements
